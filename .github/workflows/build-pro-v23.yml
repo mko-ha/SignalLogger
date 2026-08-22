@@ -20,30 +20,58 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Extract source ZIP
+        shell: bash
         run: |
+          set -euo pipefail
+          ZIP="SignalLogger_Pro_Source_v2.4.0.zip"
+
+          test -f "$ZIP" || {
+            echo "ERROR: $ZIP がリポジトリ直下にありません"
+            ls -la
+            exit 1
+          }
+
           rm -rf build-src
           mkdir build-src
-          unzip -q SignalLogger_Pro_v2.4.0_GitHub_COMPLETE.zip -d build-src
+          unzip -q "$ZIP" -d build-src
 
-          echo "=== Extracted files ==="
-          find build-src -maxdepth 3 -type f | sort
-
-      - name: Find Gradle project and build APK
-        run: |
-          SETTINGS=$(find build-src -type f -name "settings.gradle.kts" -o -name "settings.gradle" | head -1)
-
-          if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle(.kts) not found"
+          test -f build-src/settings.gradle.kts || {
+            echo "ERROR: settings.gradle.kts がZIP直下にありません"
+            find build-src -maxdepth 3 -type f -print
             exit 1
-          fi
+          }
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
-          echo "Gradle project: $PROJECT_DIR"
+          test -f build-src/build.gradle.kts
+          test -f build-src/app/build.gradle.kts
 
-          cd "$
+      - name: Build debug APK
+        working-directory: build-src
+        run: gradle assembleDebug --stacktrace
+
+      - name: Collect APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="build-src/app/build/outputs/apk/debug/app-debug.apk"
+
+          test -f "$APK" || {
+            echo "ERROR: APKが生成されていません"
+            find build-src/app/build/outputs -type f 2>/dev/null || true
+            exit 1
+          }
+
+          cp "$APK" SignalLogger-Pro-v2.4.0-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SignalLogger-Pro-v2.4.0-APK
+          path: SignalLogger-Pro-v2.4.0-debug.apk
+          if-no-files-found: error

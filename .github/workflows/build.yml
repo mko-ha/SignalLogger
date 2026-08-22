@@ -1,11 +1,11 @@
-name: Build SignalLogger APK
+name: Build SignalLogger Pro APK
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - 'SignalLogger_Source.zip'
+      - 'SignalLogger_Pro_Source.zip'
       - '.github/workflows/build.yml'
 
 jobs:
@@ -16,11 +16,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract project
+      - name: Extract Pro project
         run: |
           rm -rf buildsrc
           mkdir buildsrc
-          unzip -q SignalLogger_Source.zip -d buildsrc
+          unzip -q SignalLogger_Pro_Source.zip -d buildsrc
+
+      - name: Verify Pro applicationId
+        run: |
+          grep -F 'applicationId = "com.example.signallogger.pro"' buildsrc/app/build.gradle.kts
+          if grep -F 'applicationId = "com.example.signallogger"' buildsrc/app/build.gradle.kts; then
+            echo "ERROR: Old applicationId detected"
+            exit 1
+          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -33,13 +41,13 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build Pro debug APK
         working-directory: buildsrc
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Upload SignalLogger Pro APK
         uses: actions/upload-artifact@v4
         with:
-          name: SignalLogger-APK
+          name: SignalLogger-Pro-APK
           path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
